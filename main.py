@@ -2,44 +2,49 @@ import streamlit as st
 import numpy as np
 import tensorflow as tf
 from PIL import Image
+import gdown
+import os
 
 # ---- CONFIG ----
 IMG_SIZE = 244
-MODEL_PATH = "fruit_classification_model.keras"
+MODEL_PATH = "fruit_model.h5"
+
+# ---- DOWNLOAD MODEL ----
+if not os.path.exists(MODEL_PATH):
+    st.write("Downloading model... ⏳")
+    url = "https://drive.google.com/file/d/1mbYFUQxcr8zr1xqPslmGqveAHofgD69K/view"
+    gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
 
 # ---- LOAD MODEL ----
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model(MODEL_PATH)
+    return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 model = load_model()
 
-# ---- CUSTOM CSS ----
+# ---- UI CSS ----
 st.markdown("""
-    <style>
-    body {
-        background-color: #0e1117;
-    }
-    .main-title {
-        text-align: center;
-        font-size: 40px;
-        font-weight: bold;
-        color: #00C6FF;
-    }
-    .sub-text {
-        text-align: center;
-        color: #aaa;
-        font-size: 18px;
-        margin-bottom: 20px;
-    }
-    .result-box {
-        text-align: center;
-        padding: 15px;
-        border-radius: 10px;
-        font-size: 22px;
-        font-weight: bold;
-    }
-    </style>
+<style>
+.main-title {
+    text-align: center;
+    font-size: 40px;
+    font-weight: bold;
+    color: #00C6FF;
+}
+.sub-text {
+    text-align: center;
+    color: #aaa;
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+.result-box {
+    text-align: center;
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: bold;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ---- UI ----
@@ -52,16 +57,13 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Preview", use_container_width=True)
 
-    # ---- BUTTON ----
     if st.button("🔍 Predict"):
         with st.spinner("Analyzing..."):
 
-            # ---- PREPROCESS ----
             img = image.resize((IMG_SIZE, IMG_SIZE))
             img_array = np.array(img) / 255.0
             img_array = np.expand_dims(img_array, axis=0)
 
-            # ---- PREDICTION ----
             prediction = model.predict(img_array)[0][0]
 
             if prediction > 0.5:
@@ -73,7 +75,7 @@ if uploaded_file is not None:
             else:
                 confidence = 1 - prediction
                 st.markdown(
-                    f'<div class="result-box" style="background-color:#6eefa3;color:white;"> Fresh ({confidence:.2f})</div>',
+                    f'<div class="result-box" style="background-color:#6eefa3;color:black;">✅ Fresh ({confidence:.2f})</div>',
                     unsafe_allow_html=True
                 )
 
