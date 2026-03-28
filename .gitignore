@@ -1,2 +1,4 @@
-*.keras
+__pycache__/
 *.h5
+*.keras
+.env

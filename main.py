@@ -2,25 +2,30 @@ import streamlit as st
 import numpy as np
 import tensorflow as tf
 from PIL import Image
-import gdown
-import os
 
 # ---- CONFIG ----
 IMG_SIZE = 244
-MODEL_PATH = "fruit_model.h5"
+MODEL_PATH = "model.tflite"
 
-# ---- DOWNLOAD MODEL ----
-if not os.path.exists(MODEL_PATH):
-    st.write("Downloading model... ⏳")
-    url = "https://drive.google.com/file/d/1mbYFUQxcr8zr1xqPslmGqveAHofgD69K/view"
-    gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
-
-# ---- LOAD MODEL ----
+# ---- LOAD TFLITE MODEL ----
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model(MODEL_PATH, compile=False)
+    interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+    interpreter.allocate_tensors()
+    return interpreter
 
-model = load_model()
+interpreter = load_model()
+
+# ---- INPUT / OUTPUT DETAILS ----
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+# ---- PREDICTION FUNCTION ----
+def predict(img_array):
+    interpreter.set_tensor(input_details[0]['index'], img_array.astype(np.float32))
+    interpreter.invoke()
+    output = interpreter.get_tensor(output_details[0]['index'])
+    return output[0][0]
 
 # ---- UI CSS ----
 st.markdown("""
@@ -60,23 +65,25 @@ if uploaded_file is not None:
     if st.button("🔍 Predict"):
         with st.spinner("Analyzing..."):
 
+            # ---- PREPROCESS ----
             img = image.resize((IMG_SIZE, IMG_SIZE))
             img_array = np.array(img) / 255.0
-            img_array = np.expand_dims(img_array, axis=0)
+            img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
 
-            prediction = model.predict(img_array)[0][0]
+            # ---- PREDICTION ----
+            prediction = predict(img_array)
 
             if prediction > 0.5:
-                confidence = prediction
+                confidence = float(prediction)
                 st.markdown(
                     f'<div class="result-box" style="background-color:#ff4b4b;color:white;">🥀 Rotten ({confidence:.2f})</div>',
                     unsafe_allow_html=True
                 )
             else:
-                confidence = 1 - prediction
+                confidence = float(1 - prediction)
                 st.markdown(
                     f'<div class="result-box" style="background-color:#6eefa3;color:black;">✅ Fresh ({confidence:.2f})</div>',
                     unsafe_allow_html=True
                 )
 
-            st.progress(float(confidence))
+            st.progress(confidence)
